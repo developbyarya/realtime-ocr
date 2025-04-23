@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Digit OCR</title>
+    <style>
+      body {
+        font-family: Arial;
+        margin: 40px;
+      }
+      #result {
+        margin-top: 20px;
+        font-size: 20px;
+        color: green;
+      }
+      video,
+      canvas {
+        display: block;
+        margin-top: 20px;
+      }
+      canvas {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Upload an Image for Digit Detection</h2>
+
+    <!-- File Upload -->
+    <input type="file" id="imageInput" />
+    <button onclick="uploadImage()">Upload</button>
+
+    <h2>Or Capture From Webcam</h2>
+    <video id="video" width="320" height="240" autoplay></video>
+    <button onclick="captureImage()">Capture</button>
+    <canvas id="canvas" width="320" height="240"></canvas>
+    <label for="cameraSelect">Select Camera:</label>
+    <select id="cameraSelect"></select>
+
+    <div id="result"></div>
+    <button id="reset-btn" onclick="resetFuction()">Ulangi</button>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+      // Setup webcam
+      const video = document.getElementById("video");
+      let isSending = false;
+      let lastCaptureTime = Date.now();
+      let fps = 10;
+      let captureInterval = 1000 / fps;
+      let detected = false;
+      let currentStream = null; // Add this at the top
+
+      // socket
+      const socket = io("http://localhost:5000");
+
+      socket.on("connect", () => {
+        console.log("Connected to server");
+      });
+
+      socket.on("ocr_result", (data) => {
+        if (data.text.length <= 0) {
+          return;
+          isSending = false;
+        }
+        console.log("OCR Result:", data.text);
+
+        // Display result
+        document.getElementById("result").innerText = "Detected: " + data.text;
+
+        // Stop camera and sending if result is found
+        if (data.text && data.text.trim() !== "") {
+          detected = true;
+          console.log("Detection complete. Camera stopped.");
+        }
+
+        isSending = false; // Let next frame send if needed (though we stop now)
+      });
+
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((err) => {
+          console.error("Error accessing webcam:", err);
+        });
+
+      function resetFuction() {
+        detected = false;
+        isSending = false;
+        document.getElementById("result").innerText = "Detected: ";
+        // startCamera();
+      }
+
+      function captureAndSendImage() {
+        if (isSending || detected) return;
+
+        const currentTime = Date.now();
+
+        if (currentTime - lastCaptureTime >= captureInterval) {
+          const canvas = document.getElementById("canvas");
+          const context = canvas.getContext("2d");
+
+          const width = video.videoWidth;
+          const height = video.videoHeight;
+
+          // Only proceed if video has valid dimensions
+          if (width === 0 || height === 0) {
+            console.warn("Video not ready yet, skipping frame.");
+            return;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          context.drawImage(video, 0, 0, width, height);
+
+          const imageData = canvas.toDataURL("image/jpeg");
+
+          if (!imageData || imageData === "data:,") {
+            console.warn("Captured image data is empty, skipping.");
+            return;
+          }
+
+          socket.emit("image", imageData);
+          isSending = true;
+          lastCaptureTime = Date.now();
+        }
+      }
+
+      function uploadImage() {
+        const input = document.getElementById("imageInput");
+        if (!input.files.length) {
+          alert("Please select an image.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", input.files[0]);
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const resultDiv = document.getElementById("result");
+            if (data.result !== undefined) {
+              resultDiv.innerText = "Digits Detected: " + data.result;
+            } else {
+              resultDiv.innerText = "Error: " + data.error;
+            }
+          })
+          .catch((err) => {
+            document.getElementById("result").innerText =
+              "Error uploading image.";
+            console.error(err);
+          });
+      }
+
+      // Get camera devices
+      navigator.mediaDevices.enumerateDevices().then((devices) => {
+        const videoDevices = devices.filter(
+          (device) => device.kind === "videoinput"
+        );
+        videoDevices.forEach((device, index) => {
+          const option = document.createElement("option");
+          option.value = device.deviceId;
+          option.text = device.label || `Camera ${index + 1}`;
+          cameraSelect.appendChild(option);
+        });
+
+        if (videoDevices.length > 0) {
+          startCamera(videoDevices[0].deviceId); // start with first camera
+        }
+      });
+
+      // Start camera by deviceId
+      function startCamera(deviceId) {
+        if (currentStream) {
+          currentStream.getTracks().forEach((track) => track.stop());
+        }
+
+        navigator.mediaDevices
+          .getUserMedia({
+            video: { deviceId: { exact: deviceId } },
+          })
+          .then((stream) => {
+            currentStream = stream;
+            video.srcObject = stream;
+          })
+          .catch((err) => {
+            console.error("Error accessing webcam:", err);
+          });
+      }
+
+      // Change camera when selection changes
+      cameraSelect.addEventListener("change", () => {
+        const selectedDeviceId = cameraSelect.value;
+        startCamera(selectedDeviceId);
+      });
+
+      socket.on("ack", (data) => {
+        console.log("Server ack:", data);
+        // console.log("Read: ", parsed.result);
+        isSending = false; // allow next frame
+      });
+
+      const renderVideo = () => {
+        // The video will continue rendering at its normal FPS (native video FPS)
+        requestAnimationFrame(renderVideo);
+
+        // Capture and send an image only at 10 FPS
+        captureAndSendImage();
+      };
+
+      // Start the video rendering and frame capture loop
+      video.addEventListener("canplay", () => {
+        console.log("Video is ready!");
+        renderVideo(); // start loop only after it's ready
+      });
+    </script>
+  </body>
+</html>
