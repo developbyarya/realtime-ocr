@@ -24,10 +24,10 @@ def do_ocr(img):
 def index():
     return render_template('index.html')
 
-@app.route('/display')
+@app.route('/display', methods=["POST"])
 def display():
     number = request.form.get('number')  # get the number from the POST form
-    return render_template('display_result.html', number=number)
+    return render_template('display_hasil.html', number=number)
 
 @app.route('/upload', methods=['POST'])
 def upload():

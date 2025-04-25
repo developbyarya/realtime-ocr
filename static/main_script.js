@@ -50,7 +50,7 @@ socket.on("ocr_result", (data) => {
   const accepted = Object.entries(counts).find(([value, count]) => {
     return count / ocrResultsBuffer.length >= CONSISTENCY_THRESHOLD;
   });
-  if (accepted && ocrResultsBuffer.length > 5) {
+  if (accepted && ocrResultsBuffer.length > 3) {
     const [finalResult] = accepted;
     console.log("✅ Stable result:", finalResult);
 
@@ -176,17 +176,19 @@ video.addEventListener("canplay", () => {
 });
 
 function moveNextPage(detectedNumber) {
-  fetch("/display", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `number=${detectedNumber}`,
-  })
-    .then((res) => res.text())
-    .then((html) => {
-      document.open();
-      document.write(html);
-      document.close();
-    });
+  // Mimic formSubmit
+  const formEl = document.createElement("form");
+  formEl.style.display = "none";
+  formEl.action = "/display";
+  formEl.method = "POST";
+  const input = document.createElement("input");
+  input.type = "hidden";
+  input.name = "number";
+  input.value = detectedNumber;
+
+  formEl.appendChild(input);
+  document.body.appendChild(formEl);
+  formEl.submit();
 }
 
 function stopCameraCapture() {
