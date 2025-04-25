@@ -1,0 +1,22 @@
+body {
+  font-family: Arial;
+  margin: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#result {
+  margin-top: 20px;
+  font-size: 20px;
+  color: green;
+}
+video,
+canvas {
+  display: block;
+  margin-top: 20px;
+  width: 800px;
+  aspect-ratio: 16 / 9;
+}
+canvas {
+  display: none;
+}
