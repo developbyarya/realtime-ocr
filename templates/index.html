@@ -6,12 +6,25 @@
   </head>
   <body>
     <h1>Scan Digit</h1>
-    <video id="video" autoplay></video>
+    <div style="position: relative; display: inline-block" class="video-box">
+      <video id="video" autoplay></video>
+      <div id="cameraStatus">Loading camera...</div>
+
+      <div id="overlay">
+        <div id="cropBox"></div>
+      </div>
+    </div>
+
     <!-- <button onclick="captureImage()">Capture</button> -->
     <canvas id="canvas"></canvas>
 
     <div id="result">Detected:</div>
     <!-- <button id="reset-btn" onclick="resetFuction()">Ulangi</button> -->
+    <!-- <h3>Cropped Preview</h3> -->
+    <!-- <canvas
+      id="croppedPreview"
+      style="border: 1px solid #ccc; display: block"
+    ></canvas> -->
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='main_script.js') }}"></script>
