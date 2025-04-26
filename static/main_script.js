@@ -13,31 +13,52 @@ let scanStartTime = null;
 const MAX_BUFFER_SIZE = 10; // check every 10 frames
 const CONSISTENCY_THRESHOLD = 0.5; // 90%
 
+let ocrWorker;
+
+async function initWorker() {
+  ocrWorker = await Tesseract.createWorker("eng", 1, {
+    logger: (m) => console.log(m), // optional
+  });
+  await ocrWorker.setParameters({
+    tessedit_char_whitelist: "0123456789",
+  });
+
+  // await ocrWorker.load();
+  // await ocrWorker.loadLanguage("eng");
+  // await ocrWorker.initialize("eng");
+}
+
 // socket
-const socket = io("http://localhost:5000");
+// const socket = io("http://localhost:5000");
 
-socket.on("connect", () => {
-  console.log("Connected to server");
-});
+// socket.on("connect", () => {
+//   console.log("Connected to server");
+// });
 
-socket.on("ocr_result", (data) => {
-  if (detected) return;
-  if (data.text.length <= 0) {
-    isSending = false;
-    return;
-  }
+// socket.on("ocr_result", (data) => {
+//   if (detected) return;
+//   if (data.text.length <= 0) {
+//     isSending = false;
+//     return;
+//   }
 
-  // Display result
-  //   document.getElementById("result").innerText = "Detected: " + data.text;
+//   // Display result
+//   //   document.getElementById("result").innerText = "Detected: " + data.text;
 
-  // Stop camera and sending if result is found
-  if (data.text && data.text.trim() == "") {
-    isSending = false;
-    return;
-  }
-  // Add to buffer
-  //   console.log("OCR Result:", data.text);
-  ocrResultsBuffer.push(data.text);
+//   // Stop camera and sending if result is found
+//   if (data.text && data.text.trim() == "") {
+//     isSending = false;
+//     return;
+//   }
+//   // Add to buffer
+//   //   console.log("OCR Result:", data.text);
+
+//   isSending = false; // Let next frame send if needed (though we stop now)
+// });
+
+function confirmResult(text) {
+  text = text.trim();
+  ocrResultsBuffer.push(text);
   if (ocrResultsBuffer.length > MAX_BUFFER_SIZE) {
     ocrResultsBuffer.shift(); // remove oldest
   }
@@ -48,7 +69,7 @@ socket.on("ocr_result", (data) => {
   for (const result of ocrResultsBuffer) {
     counts[result] = (counts[result] || 0) + 1;
   }
-  // Check if any result reaches 90%
+
   const accepted = Object.entries(counts).find(([value, count]) => {
     return count / ocrResultsBuffer.length >= CONSISTENCY_THRESHOLD;
   });
@@ -58,17 +79,15 @@ socket.on("ocr_result", (data) => {
 
     detected = true;
     document.getElementById("result").innerText = "Detected: " + finalResult;
-    stopCameraCapture();
-    moveNextPage(finalResult);
-    console.log("Detection complete. Camera stopped.");
+    // stopCameraCapture();
+    // moveNextPage(finalResult);
+    // console.log("Detection complete. Camera stopped.");
 
     // freeze camera or redirect to result page
     //   stopCameraCapture();
     //   window.location.href = `/display_result?digit=${finalResult}`; // or use POST
   }
-
-  isSending = false; // Let next frame send if needed (though we stop now)
-});
+}
 
 navigator.mediaDevices
   .getUserMedia({ video: true })
@@ -88,7 +107,14 @@ function resetFuction() {
   // startCamera();
 }
 
-function captureAndSendImage() {
+async function ocrCanvas(canvas) {
+  const {
+    data: { text },
+  } = await ocrWorker.recognize(canvas);
+  return text;
+}
+
+async function captureAndSendImage() {
   if (!cameraReadyTime || Date.now() < cameraReadyTime) return;
   if (isSending | detected) return;
 
@@ -132,15 +158,6 @@ function captureAndSendImage() {
     const tempCtx = tempCanvas.getContext("2d");
     tempCtx.putImageData(croppedImageData, 0, 0);
 
-    // // Test Cropped result
-    // // Preview the cropped region on the page
-    // const previewCanvas = document.getElUse Levenshtein distance or fuzzy match if OCR sometimes returns messy close matches.
-
-    // previewCanvas.width = cropWidth;
-    // previewCanvas.height = cropHeight;
-    // const previewCtx = previewCanvas.getContext("2d");
-    // previewCtx.drawImage(tempCanvas, 0, 0);
-
     const imageData = tempCanvas.toDataURL("image/jpeg");
 
     if (!imageData || imageData === "data:,") {
@@ -148,34 +165,51 @@ function captureAndSendImage() {
       return;
     }
 
-    socket.emit("image", imageData);
-    isSending = true;
+    try {
+      isSending = true;
+      const ocrExecTime = Date.now();
+      const ocrResult = await ocrCanvas(tempCanvas);
+      console.log(ocrResult);
+      console.log(`Exec Time: ${Date.now() - ocrExecTime}ms`);
+      if (ocrResult.trim() === "") {
+        isSending = false;
+        return;
+      }
+      // detected = true;
+      // document.getElementById("result").innerText = "Detected: " + ocrResult;
+      confirmResult(ocrResult);
+      isSending = false;
+    } catch (error) {
+      console.log(error);
+    }
+
+    // socket.emit("image", imageData);
     lastCaptureTime = Date.now();
   }
 }
 
-socket.on("ack", (data) => {
-  console.log("Server ack:", data);
-  // console.log("Read: ", parsed.result);
-  isSending = false; // allow next frame
-});
+// socket.on("ack", (data) => {
+//   console.log("Server ack:", data);
+//   // console.log("Read: ", parsed.result);
+//   isSending = false; // allow next frame
+// });
 
 const renderVideo = () => {
   // The video will continue rendering at its normal FPS (native video FPS)
   requestAnimationFrame(renderVideo);
 
-  if (
-    !detected &&
-    scanStartTime &&
-    Date.now() - scanStartTime >= MAX_SCAN_DURATION
-  ) {
-    console.error("⛔ Scan timed out. No result detected.");
-    stopCameraCapture();
-    document.getElementById("result").innerText =
-      "❌ Gagal mendeteksi. Coba lagi.";
-    document.getElementById("back-button").style.display = "block";
-    return;
-  }
+  // if (
+  //   !detected &&
+  //   scanStartTime &&
+  //   Date.now() - scanStartTime >= MAX_SCAN_DURATION
+  // ) {
+  //   console.error("⛔ Scan timed out. No result detected.");
+  //   stopCameraCapture();
+  //   document.getElementById("result").innerText =
+  //     "❌ Gagal mendeteksi. Coba lagi.";
+  //   document.getElementById("back-button").style.display = "block";
+  //   return;
+  // }
 
   // Capture and send an image only at 10 FPS
   captureAndSendImage();
@@ -212,4 +246,15 @@ function stopCameraCapture() {
     video.srcObject.getTracks().forEach((track) => track.stop());
   }
   isSending = true; // block further sends
+}
+
+window.onload = async () => {
+  await initWorker();
+  console.log("OCR worker ready!");
+};
+
+async function terminateWorker() {
+  if (ocrWorker) {
+    await ocrWorker.terminate();
+  }
 }
