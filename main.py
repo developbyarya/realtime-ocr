@@ -20,7 +20,11 @@ def do_ocr(img):
     except Exception as e:
         raise Exception("Something in OCR error: " + e)
 
-@app.route('/')
+@app.route("/")
+def main_page():
+    return render_template('main_page.html')
+
+@app.route('/scan')
 def index():
     return render_template('index.html')
 
@@ -64,12 +68,6 @@ def handle_image(data_url):
     except Exception as e:
         emit("ack", {"status": "error"})
 
-@socketio.on('test')
-def handle_image(data):
-    print("Receive image", data)
-
-    result = "Example OCR Result"
-    # emit('ocr_result', {'text': result})  # Send back to client
 
 
 if __name__ == '__main__':

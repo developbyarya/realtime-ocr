@@ -8,6 +8,8 @@ let detected = false;
 let currentStream = null; // Add this at the top
 let cameraReadyTime = null;
 let ocrResultsBuffer = [];
+const MAX_SCAN_DURATION = 40000; // 40 seconds in ms
+let scanStartTime = null;
 const MAX_BUFFER_SIZE = 10; // check every 10 frames
 const CONSISTENCY_THRESHOLD = 0.5; // 90%
 
@@ -73,6 +75,7 @@ navigator.mediaDevices
   .then((stream) => {
     video.srcObject = stream;
     cameraReadyTime = Date.now() + 3000;
+    scanStartTime = Date.now(); // Mark the start of scanning
   })
   .catch((err) => {
     console.error("Error accessing webcam:", err);
@@ -160,6 +163,19 @@ socket.on("ack", (data) => {
 const renderVideo = () => {
   // The video will continue rendering at its normal FPS (native video FPS)
   requestAnimationFrame(renderVideo);
+
+  if (
+    !detected &&
+    scanStartTime &&
+    Date.now() - scanStartTime >= MAX_SCAN_DURATION
+  ) {
+    console.error("⛔ Scan timed out. No result detected.");
+    stopCameraCapture();
+    document.getElementById("result").innerText =
+      "❌ Gagal mendeteksi. Coba lagi.";
+    document.getElementById("back-button").style.display = "block";
+    return;
+  }
 
   // Capture and send an image only at 10 FPS
   captureAndSendImage();
