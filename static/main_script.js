@@ -22,39 +22,7 @@ async function initWorker() {
   await ocrWorker.setParameters({
     tessedit_char_whitelist: "0123456789",
   });
-
-  // await ocrWorker.load();
-  // await ocrWorker.loadLanguage("eng");
-  // await ocrWorker.initialize("eng");
 }
-
-// socket
-// const socket = io("http://localhost:5000");
-
-// socket.on("connect", () => {
-//   console.log("Connected to server");
-// });
-
-// socket.on("ocr_result", (data) => {
-//   if (detected) return;
-//   if (data.text.length <= 0) {
-//     isSending = false;
-//     return;
-//   }
-
-//   // Display result
-//   //   document.getElementById("result").innerText = "Detected: " + data.text;
-
-//   // Stop camera and sending if result is found
-//   if (data.text && data.text.trim() == "") {
-//     isSending = false;
-//     return;
-//   }
-//   // Add to buffer
-//   //   console.log("OCR Result:", data.text);
-
-//   isSending = false; // Let next frame send if needed (though we stop now)
-// });
 
 function confirmResult(text) {
   text = text.trim();
@@ -81,11 +49,6 @@ function confirmResult(text) {
     document.getElementById("result").innerText = "Detected: " + finalResult;
     // stopCameraCapture();
     // moveNextPage(finalResult);
-    // console.log("Detection complete. Camera stopped.");
-
-    // freeze camera or redirect to result page
-    //   stopCameraCapture();
-    //   window.location.href = `/display_result?digit=${finalResult}`; // or use POST
   }
 }
 
@@ -188,30 +151,23 @@ async function captureAndSendImage() {
   }
 }
 
-// socket.on("ack", (data) => {
-//   console.log("Server ack:", data);
-//   // console.log("Read: ", parsed.result);
-//   isSending = false; // allow next frame
-// });
-
 const renderVideo = () => {
   // The video will continue rendering at its normal FPS (native video FPS)
   requestAnimationFrame(renderVideo);
 
-  // if (
-  //   !detected &&
-  //   scanStartTime &&
-  //   Date.now() - scanStartTime >= MAX_SCAN_DURATION
-  // ) {
-  //   console.error("⛔ Scan timed out. No result detected.");
-  //   stopCameraCapture();
-  //   document.getElementById("result").innerText =
-  //     "❌ Gagal mendeteksi. Coba lagi.";
-  //   document.getElementById("back-button").style.display = "block";
-  //   return;
-  // }
+  if (
+    !detected &&
+    scanStartTime &&
+    Date.now() - scanStartTime >= MAX_SCAN_DURATION
+  ) {
+    console.error("⛔ Scan timed out. No result detected.");
+    stopCameraCapture();
+    document.getElementById("result").innerText =
+      "❌ Gagal mendeteksi. Coba lagi.";
+    document.getElementById("back-button").style.display = "block";
+    return;
+  }
 
-  // Capture and send an image only at 10 FPS
   captureAndSendImage();
 };
 
