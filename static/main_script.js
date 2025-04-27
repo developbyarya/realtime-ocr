@@ -37,22 +37,23 @@ socket.on("ocr_result", (data) => {
   }
   // Add to buffer
   //   console.log("OCR Result:", data.text);
-  ocrResultsBuffer.push(data.text);
+  ocrResultsBuffer.push(data.text.trim());
   if (ocrResultsBuffer.length > MAX_BUFFER_SIZE) {
     ocrResultsBuffer.shift(); // remove oldest
   }
   //   console.log(ocrResultsBuffer);
   // Count frequency
   const counts = {};
-  console.log(counts);
   for (const result of ocrResultsBuffer) {
     counts[result] = (counts[result] || 0) + 1;
   }
+
+  console.log(counts);
   // Check if any result reaches 90%
   const accepted = Object.entries(counts).find(([value, count]) => {
     return count / ocrResultsBuffer.length >= CONSISTENCY_THRESHOLD;
   });
-  if (accepted && ocrResultsBuffer.length > 3) {
+  if (accepted && ocrResultsBuffer.length > 4) {
     const [finalResult] = accepted;
     console.log("✅ Stable result:", finalResult);
 
@@ -186,6 +187,9 @@ video.addEventListener("canplay", () => {
   console.log("Video is ready!");
   setTimeout(() => {
     document.getElementById("cameraStatus").innerText = "Camera ready!";
+    setTimeout(() => {
+      document.getElementById("cameraStatus").style.opacity = 0;
+    }, 1000);
   }, 3000);
 
   renderVideo(); // start loop only after it's ready

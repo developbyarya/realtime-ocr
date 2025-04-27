@@ -74,7 +74,7 @@ io.on("connection", (socket) => {
 const gracefulShutdown = async () => {
   console.log("Shutting down server...");
   await worker.terminate();
-  server.close(() => {
+  httpServer.close(() => {
     console.log("Server closed");
     process.exit(0);
   });
