@@ -1,0 +1,30 @@
+{
+  "name": "ocr-test-flask",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developbyarya/realtime-ocr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/developbyarya/realtime-ocr/issues"
+  },
+  "homepage": "https://github.com/developbyarya/realtime-ocr#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "socketio": "^1.0.0",
+    "tesseract.js": "^6.0.1"
+  }
+}
