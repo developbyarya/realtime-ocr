@@ -45,6 +45,36 @@ app.post("/display", (req, res) => {
   res.render("display_hasil", { number: detectedNumber });
 });
 
+app.use(express.json({ limit: "10mb" })); // Increase limit if images are big
+
+app.post("/upload", async (req, res) => {
+  try {
+    let base64Data = req.body.image;
+
+    // If it contains "data:image/..." prefix, remove it
+    if (base64Data.startsWith("data:image")) {
+      base64Data = base64Data.split(",")[1];
+    }
+
+    // Decode and process with Tesseract
+    const buffer = Buffer.from(base64Data, "base64");
+
+    const {
+      data: { text, confidence },
+    } = await worker.recognize(buffer);
+    console.log(`${text} ${confidence}%`);
+
+    if (confidence < 70) {
+      return res.json({ text: "" });
+    }
+
+    res.json({ text });
+  } catch (err) {
+    console.error("OCR error:", err);
+    res.status(500).json({ error: "Failed to process image" });
+  }
+});
+
 const gracefulShutdown = async () => {
   console.log("Shutting down server...");
   await worker.terminate();

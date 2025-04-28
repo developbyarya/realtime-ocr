@@ -2,42 +2,25 @@
 const video = document.getElementById("video");
 let isSending = false;
 let lastCaptureTime = Date.now();
-let fps = 10;
+let fps = 2;
 let captureInterval = 1000 / fps;
 let detected = false;
 let currentStream = null; // Add this at the top
 let cameraReadyTime = null;
 let ocrResultsBuffer = [];
-const MAX_SCAN_DURATION = 40000; // 40 seconds in ms
+const MAX_SCAN_DURATION = 30000; // 40 seconds in ms
 let scanStartTime = null;
 const MAX_BUFFER_SIZE = 10; // check every 10 frames
-const CONSISTENCY_THRESHOLD = 0.5; // 90%
+const CONSISTENCY_THRESHOLD = 0.51;
 
-// socket
-const socket = io("http://localhost:5000");
-
-socket.on("connect", () => {
-  console.log("Connected to server");
-});
-
-socket.on("ocr_result", (data) => {
-  if (detected) return;
-  if (data.text.length <= 0) {
-    isSending = false;
-    return;
-  }
-
-  // Display result
-  //   document.getElementById("result").innerText = "Detected: " + data.text;
-
-  // Stop camera and sending if result is found
-  if (data.text && data.text.trim() == "") {
+function verifyResult(text) {
+  if (text.trim() == "") {
     isSending = false;
     return;
   }
   // Add to buffer
   //   console.log("OCR Result:", data.text);
-  ocrResultsBuffer.push(data.text.trim());
+  ocrResultsBuffer.push(text.trim());
   if (ocrResultsBuffer.length > MAX_BUFFER_SIZE) {
     ocrResultsBuffer.shift(); // remove oldest
   }
@@ -53,7 +36,7 @@ socket.on("ocr_result", (data) => {
   const accepted = Object.entries(counts).find(([value, count]) => {
     return count / ocrResultsBuffer.length >= CONSISTENCY_THRESHOLD;
   });
-  if (accepted && ocrResultsBuffer.length > 4) {
+  if (accepted && ocrResultsBuffer.length > 2) {
     const [finalResult] = accepted;
     console.log("✅ Stable result:", finalResult);
 
@@ -62,14 +45,10 @@ socket.on("ocr_result", (data) => {
     stopCameraCapture();
     moveNextPage(finalResult);
     console.log("Detection complete. Camera stopped.");
-
-    // freeze camera or redirect to result page
-    //   stopCameraCapture();
-    //   window.location.href = `/display_result?digit=${finalResult}`; // or use POST
   }
 
   isSending = false; // Let next frame send if needed (though we stop now)
-});
+}
 
 navigator.mediaDevices
   .getUserMedia({ video: true })
@@ -133,37 +112,58 @@ function captureAndSendImage() {
     const tempCtx = tempCanvas.getContext("2d");
     tempCtx.putImageData(croppedImageData, 0, 0);
 
-    // // Test Cropped result
-    // // Preview the cropped region on the page
-    // const previewCanvas = document.getElUse Levenshtein distance or fuzzy match if OCR sometimes returns messy close matches.
+    // Step 2: Create a SMALLER canvas
+    const resizedCanvas = document.createElement("canvas");
 
-    // previewCanvas.width = cropWidth;
-    // previewCanvas.height = cropHeight;
-    // const previewCtx = previewCanvas.getContext("2d");
-    // previewCtx.drawImage(tempCanvas, 0, 0);
+    // Example: target smaller width, e.g., 320px wide
+    const targetWidth = 320;
+    const scaleFactor = targetWidth / cropWidth;
+    const targetHeight = cropHeight * scaleFactor;
 
-    const imageData = tempCanvas.toDataURL("image/jpeg");
+    resizedCanvas.width = targetWidth;
+    resizedCanvas.height = targetHeight;
+
+    // Step 3: Draw and scale the cropped image into resized canvas
+    const resizedCtx = resizedCanvas.getContext("2d");
+    resizedCtx.drawImage(tempCanvas, 0, 0, targetWidth, targetHeight);
+
+    // Step 4: Export as base64
+    const imageData = resizedCanvas.toDataURL("image/jpeg", 0.7); // You can also adjust JPEG quality here (0.7 = 70%)
 
     if (!imageData || imageData === "data:,") {
       console.warn("Captured image data is empty, skipping.");
       return;
     }
 
-    socket.emit("image", imageData);
     isSending = true;
     lastCaptureTime = Date.now();
+    sendImage(imageData);
   }
 }
 
-socket.on("ack", (data) => {
-  console.log("Server ack:", data);
-  // console.log("Read: ", parsed.result);
-  isSending = false; // allow next frame
-});
+async function sendImage(base64Image) {
+  try {
+    const response = await fetch("/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ image: base64Image }),
+    });
+
+    const result = await response.json();
+    verifyResult(result.text);
+    console.log("OCR Result:", result.text);
+
+    // Display result on your page
+    document.getElementById("result").innerText = `Detected: ${result.text}`;
+  } catch (error) {
+    console.error("Error sending image:", error);
+  }
+}
 
 const renderVideo = () => {
   // The video will continue rendering at its normal FPS (native video FPS)
-  requestAnimationFrame(renderVideo);
 
   if (
     !detected &&
@@ -177,6 +177,8 @@ const renderVideo = () => {
     document.getElementById("back-button").style.display = "block";
     return;
   }
+
+  requestAnimationFrame(renderVideo);
 
   // Capture and send an image only at 10 FPS
   captureAndSendImage();
