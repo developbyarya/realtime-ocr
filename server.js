@@ -6,10 +6,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // This will simulate __filename and __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const PORT = process.env.PORT;
 
 const app = express();
 
@@ -58,8 +63,16 @@ io.on("connection", (socket) => {
       const {
         data: { text, confidence },
       } = await worker.recognize(imageBuffer);
-      console.log("Read: ", text);
-      socket.emit("ocr_result", { text, confidence });
+
+      if (confidence < 60) {
+        socket.emit("ocr_result", { text: "", confidence });
+        return;
+      }
+
+      console.log("Read: ", text, "confidence: ", confidence);
+      const digitsOnly = text.replace(/\D/g, ""); // \D matches any non-digit character
+
+      socket.emit("ocr_result", { text: digitsOnly, confidence });
     } catch (error) {
       console.error("OCR Error:", error);
       socket.emit("ocrError", { error: error.message });
@@ -84,6 +97,6 @@ process.on("SIGINT", gracefulShutdown);
 process.on("SIGTERM", gracefulShutdown);
 process.on("exit", gracefulShutdown);
 
-httpServer.listen(5000, () => {
-  console.log("SERVER STARTED!");
+httpServer.listen(PORT || 5000, () => {
+  console.log("SERVER STARTED! on http://localhost:", PORT);
 });
