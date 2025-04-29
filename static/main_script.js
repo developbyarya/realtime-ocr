@@ -2,7 +2,7 @@
 const video = document.getElementById("video");
 let isSending = false;
 let lastCaptureTime = Date.now();
-let fps = 10;
+let fps = 5;
 let captureInterval = 1000 / fps;
 let detected = false;
 let currentStream = null; // Add this at the top
@@ -30,13 +30,12 @@ function confirmResult(text) {
   if (ocrResultsBuffer.length > MAX_BUFFER_SIZE) {
     ocrResultsBuffer.shift(); // remove oldest
   }
-  //   console.log(ocrResultsBuffer);
-  // Count frequency
   const counts = {};
-  console.log(counts);
   for (const result of ocrResultsBuffer) {
     counts[result] = (counts[result] || 0) + 1;
   }
+
+  console.log(counts);
 
   const accepted = Object.entries(counts).find(([value, count]) => {
     return count / ocrResultsBuffer.length >= CONSISTENCY_THRESHOLD;
@@ -47,8 +46,8 @@ function confirmResult(text) {
 
     detected = true;
     document.getElementById("result").innerText = "Detected: " + finalResult;
-    // stopCameraCapture();
-    // moveNextPage(finalResult);
+    stopCameraCapture();
+    moveNextPage(finalResult);
   }
 }
 
@@ -72,8 +71,9 @@ function resetFuction() {
 
 async function ocrCanvas(canvas) {
   const {
-    data: { text },
+    data: { text, confidence },
   } = await ocrWorker.recognize(canvas);
+  if (confidence < 70) return "";
   return text;
 }
 
@@ -152,9 +152,6 @@ async function captureAndSendImage() {
 }
 
 const renderVideo = () => {
-  // The video will continue rendering at its normal FPS (native video FPS)
-  requestAnimationFrame(renderVideo);
-
   if (
     !detected &&
     scanStartTime &&
@@ -167,6 +164,8 @@ const renderVideo = () => {
     document.getElementById("back-button").style.display = "block";
     return;
   }
+  // The video will continue rendering at its normal FPS (native video FPS)
+  requestAnimationFrame(renderVideo);
 
   captureAndSendImage();
 };
@@ -182,6 +181,7 @@ video.addEventListener("canplay", () => {
 });
 
 function moveNextPage(detectedNumber) {
+  terminateWorker();
   // Mimic formSubmit
   const formEl = document.createElement("form");
   formEl.style.display = "none";
