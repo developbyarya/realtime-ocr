@@ -27,7 +27,8 @@ await worker.setParameters({
   tessedit_char_whitelist: "0123456789",
 });
 
-app.use(express.static(path.join(__dirname, "static")));
+app.use(express.static(path.join(__dirname, "static"), { maxAge: "1d" }));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -59,9 +60,16 @@ app.post("/upload", async (req, res) => {
     // Decode and process with Tesseract
     const buffer = Buffer.from(base64Data, "base64");
 
+    const result = await Promise.race([
+      worker.recognize(buffer),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("OCR Timeout")), 10000)
+      ), // 10s timeout
+    ]);
+
     const {
       data: { text, confidence },
-    } = await worker.recognize(buffer);
+    } = result;
     console.log(`${text} ${confidence}%`);
 
     if (confidence < 70) {
@@ -78,7 +86,7 @@ app.post("/upload", async (req, res) => {
 const gracefulShutdown = async () => {
   console.log("Shutting down server...");
   await worker.terminate();
-  app.close(() => {
+  server.close(() => {
     console.log("Server closed");
     process.exit(0);
   });
@@ -88,6 +96,6 @@ process.on("SIGINT", gracefulShutdown);
 process.on("SIGTERM", gracefulShutdown);
 process.on("exit", gracefulShutdown);
 
-app.listen(PORT || 5000, () => {
+const server = app.listen(PORT || 5000, () => {
   console.log("SERVER STARTED! on http://localhost:", PORT);
 });
