@@ -1,33 +1,38 @@
 body {
-  font-family: Arial;
-  margin: 40px;
+  font-family: Arial, sans-serif;
+  margin: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   background: #f9f9f9;
 }
+
 #result {
   margin-top: 20px;
-  font-size: 24px;
+  font-size: 1.5rem;
   color: #2ecc71;
   font-weight: bold;
+  text-align: center;
+  word-wrap: break-word;
+  max-width: 90vw;
 }
 
 .video-box {
-  width: 700px;
+  width: 90vw;
+  max-width: 700px;
   aspect-ratio: 16 / 9;
-  height: auto;
   border: 2px solid #ddd;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
   background: white;
+  position: relative;
 }
 
 .video-box video {
   width: 100%;
   height: 100%;
-  aspect-ratio: 16/ 9;
+  object-fit: cover;
 }
 
 canvas {
@@ -36,7 +41,7 @@ canvas {
 
 #overlay {
   position: absolute;
-  top: 0px;
+  top: 0;
   left: 0;
   width: 100%;
   height: 100%;
@@ -47,27 +52,29 @@ canvas {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 50%;
-  aspect-ratio: 16/9;
+  width: 60%;
+  max-width: 90vw;
+  aspect-ratio: 16 / 9;
   border: 2px dashed red;
   box-sizing: border-box;
   transform: translate(-50%, -50%);
   animation: dash 2s linear infinite;
 }
 
-/* Center the camera status */
 #cameraStatus {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 24px;
+  font-size: 1.25rem;
   font-weight: bold;
   color: #555;
   background: rgba(255, 255, 255, 0.8);
   padding: 10px 20px;
   border-radius: 8px;
+  text-align: center;
 }
+
 #back-button {
   margin-top: 20px;
   padding: 10px 20px;
@@ -77,13 +84,49 @@ canvas {
   border-radius: 8px;
   font-weight: bold;
   transition: background-color 0.3s;
+  font-size: 1rem;
 }
+
 #back-button:hover {
   background-color: #2980b9;
 }
+
 @keyframes dash {
   to {
     border-color: red;
     border-style: dashed;
+  }
+}
+
+#deviceSelector {
+  margin: 20px 0;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* --- MEDIA QUERIES --- */
+@media (max-width: 600px) {
+  body {
+    margin: 10px;
+  }
+
+  #result {
+    font-size: 2rem;
+  }
+
+  #cameraStatus {
+    font-size: 1rem;
+    padding: 8px 16px;
+  }
+
+  #back-button {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+  }
+
+  #cropBox {
+    width: 80%;
   }
 }

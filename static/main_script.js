@@ -12,8 +12,69 @@ const MAX_SCAN_DURATION = 40000; // 40 seconds in ms
 let scanStartTime = null;
 const MAX_BUFFER_SIZE = 10; // check every 10 frames
 const CONSISTENCY_THRESHOLD = 0.5; // 90%
+const deviceSelector = document.getElementById("deviceSelector");
 
-let ocrWorker;
+let ocrWorker = null;
+
+async function getDevices() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices.filter((device) => device.kind === "videoinput");
+}
+async function startCamera(deviceId) {
+  cameraReadyTime = Date.now() + 3000;
+  if (currentStream) {
+    currentStream.getTracks().forEach((track) => track.stop());
+  }
+
+  try {
+    const constraints = {
+      video: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        facingMode: "environment",
+      },
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    currentStream = stream;
+    video.srcObject = stream;
+    // cameraStatus.style.display = "none";
+  } catch (err) {
+    console.error("Camera error:", err);
+    cameraStatus.innerText = "Failed to access camera";
+  }
+}
+async function setupCamera() {
+  const devices = await getDevices();
+  deviceSelector.innerHTML = "";
+
+  devices.forEach((device) => {
+    const option = document.createElement("option");
+    option.value = device.deviceId;
+    option.text = device.label || `Camera ${device.deviceId}`;
+    deviceSelector.appendChild(option);
+  });
+
+  deviceSelector.onchange = () => {
+    document.getElementById("cameraStatus").style.display = "block";
+    cameraReadyTime = Date.now() + 3000;
+    document.getElementById("cameraStatus").innerText = "Loading camera!";
+    startCamera(deviceSelector.value);
+    setTimeout(() => {
+      document.getElementById("cameraStatus").innerText = "Camera ready!";
+
+      setTimeout(() => {
+        document.getElementById("cameraStatus").style.display = "none";
+      }, 2000);
+    }, 3050);
+  };
+
+  if (devices.length > 0) {
+    startCamera(devices[0].deviceId);
+  } else {
+    cameraStatus.innerText = "No cameras found";
+  }
+}
+
+setupCamera();
 
 async function initWorker() {
   ocrWorker = await Tesseract.createWorker("eng", 1, {
@@ -51,17 +112,6 @@ function confirmResult(text) {
   }
 }
 
-navigator.mediaDevices
-  .getUserMedia({ video: true })
-  .then((stream) => {
-    video.srcObject = stream;
-    cameraReadyTime = Date.now() + 3000;
-    scanStartTime = Date.now(); // Mark the start of scanning
-  })
-  .catch((err) => {
-    console.error("Error accessing webcam:", err);
-  });
-
 function resetFuction() {
   detected = false;
   isSending = false;
@@ -79,7 +129,9 @@ async function ocrCanvas(canvas) {
 
 async function captureAndSendImage() {
   if (!cameraReadyTime || Date.now() < cameraReadyTime) return;
-  if (isSending | detected) return;
+  if (ocrWorker == null) return;
+  if (isSending || detected) return;
+  console.log("test");
 
   const currentTime = Date.now();
 
@@ -113,13 +165,27 @@ async function captureAndSendImage() {
       cropWidth,
       cropHeight
     );
+    const targetWidth = 320;
+    const targetHeight = 180;
 
     // Draw cropped region to a temporary canvas
     const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = cropWidth;
-    tempCanvas.height = cropHeight;
+    tempCanvas.width = targetWidth;
+    tempCanvas.height = targetHeight;
     const tempCtx = tempCanvas.getContext("2d");
-    tempCtx.putImageData(croppedImageData, 0, 0);
+
+    // Instead of using putImageData (which is 1:1), we draw and resize here:
+    tempCtx.drawImage(
+      canvas, // source canvas
+      cropX,
+      cropY, // source crop start
+      cropWidth,
+      cropHeight, // source crop size
+      0,
+      0, // target start
+      targetWidth,
+      targetHeight // target size
+    );
 
     const imageData = tempCanvas.toDataURL("image/jpeg");
 
@@ -166,6 +232,7 @@ const renderVideo = () => {
   }
   // The video will continue rendering at its normal FPS (native video FPS)
   requestAnimationFrame(renderVideo);
+  // console.log("test");
 
   captureAndSendImage();
 };
@@ -175,6 +242,9 @@ video.addEventListener("canplay", () => {
   console.log("Video is ready!");
   setTimeout(() => {
     document.getElementById("cameraStatus").innerText = "Camera ready!";
+    setTimeout(() => {
+      document.getElementById("cameraStatus").style.display = "none";
+    }, 2000);
   }, 3000);
 
   renderVideo(); // start loop only after it's ready
