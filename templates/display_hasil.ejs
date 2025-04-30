@@ -36,12 +36,33 @@
         font-weight: bold;
         margin-top: 0;
       }
+
+      .scan-button {
+        padding: 20px 40px;
+        font-size: 1.5rem;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        transition: background-color 0.3s ease;
+      }
+
+      .scan-button:hover {
+        background-color: #0056b3;
+      }
+
+      .scan-button:focus {
+        outline: 3px solid #ffcc00;
+      }
     </style>
   </head>
   <body>
     <div class="result-container">
       <h1>Hasil Deteksi:</h1>
       <p class="detected-number"><%= number %></p>
+
+      <a class="scan-button" href="/scan">Scan lagi</a>
     </div>
   </body>
 </html>

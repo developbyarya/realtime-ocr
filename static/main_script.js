@@ -22,6 +22,7 @@ async function getDevices() {
 }
 async function startCamera(deviceId) {
   cameraReadyTime = Date.now() + 3000;
+  scanStartTime = cameraReadyTime;
   if (currentStream) {
     currentStream.getTracks().forEach((track) => track.stop());
   }
@@ -54,8 +55,8 @@ async function setupCamera() {
   });
 
   deviceSelector.onchange = () => {
+    scanStartTime = Date.now();
     document.getElementById("cameraStatus").style.display = "block";
-    cameraReadyTime = Date.now() + 3000;
     document.getElementById("cameraStatus").innerText = "Loading camera!";
     startCamera(deviceSelector.value);
     setTimeout(() => {
