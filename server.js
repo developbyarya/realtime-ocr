@@ -37,9 +37,9 @@ app.post("/display", (req, res) => {
   res.render("display_hasil", { number: detectedNumber });
 });
 
-// app.listen(PORT || 5000, () => {
-//   console.log("SERVER STARTED! on http://localhost:", PORT);
-// });
+app.listen(PORT || 5000, () => {
+  console.log("SERVER STARTED! on http://localhost:", PORT);
+});
 
 export default (req, res) => {
   return app(req, res);
